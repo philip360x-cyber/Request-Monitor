@@ -5,12 +5,6 @@ Designed for **educational purposes, load testing, and authorized security testi
 
 ---
 
-## Screenshot / Demo
-
-requestmonitor.png
-
----
-
 ## Features
 
 - Send controlled HTTP requests to endpoints you own or have permission to test  
