@@ -17,8 +17,4 @@ Designed for **educational purposes, load testing, and authorized security testi
 
 ## Installation
 
-Simply clone the repository:
-
-```bash
-git clone https://github.com/yourusername/request-monitor.git
-cd request-monitor
+Download the Zip-File., Open the folder and click on Request Monitor
