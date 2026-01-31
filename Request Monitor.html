@@ -1,0 +1,201 @@
+
+<html>
+<head>
+<meta charset="utf-8">
+<title>Request Monitor</title>
+<style>
+body {
+  background:#0b0e13;
+  color:#cfd3dc;
+  font-family: Consolas, Menlo, monospace;
+}
+h1 {
+  font-size:18px;
+  color:#9fa8ff;
+  letter-spacing:0.6px;
+}
+label { color:#9aa0a6; }
+input, select {
+  background:#141821;
+  color:#e6e6e6;
+  border:1px solid #2a2f3a;
+  padding:6px;
+}
+button {
+  background:#1a1f2b;
+  color:#cfd3dc;
+  border:1px solid #3a3f55;
+  padding:6px 12px;
+  cursor:pointer;
+}
+button:hover { background:#23283a; }
+
+.stat {
+  margin-top:6px;
+  font-size:13px;
+}
+
+.meter {
+  width:300px;
+  height:10px;
+  background:#080b10;
+  border:1px solid #1c2230;
+  overflow:hidden;
+  box-shadow:0 0 6px rgba(90,120,255,0.15) inset;
+}
+.heat {
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#3a5fff,#ff4455);
+  transition:width 0.12s linear;
+  box-shadow:0 0 8px rgba(255,80,100,0.4);
+}
+
+#log {
+  margin-top:10px;
+  height:150px;
+  overflow:auto;
+  font-size:11px;
+  color:#7f8694;
+  border-top:1px solid #1a1a1a;
+  padding-top:6px;
+}
+</style>
+</head>
+<body>
+
+<h1>Request Monitor</h1>
+<h6>Does it work? <br> Yes, Requests are sent (as image GET requests). It is important to do this on servers only YOU own or have explicit permission to test on.</h6>
+
+<label>Target URL</label><br>
+<input id="url" value="https://example.com/ping"><br><br>
+
+<label>Requests per second (Up to 10)</label><br>
+<input id="rate" type="number" min="1" max="10" value="1"><br><br>
+
+<label>Mode</label><br>
+<select id="mode">
+  <option value="smooth">ULTRA</option>
+  <option value="burst">Slow</option>
+</select><br><br>
+
+<button id="start">Start</button>
+<button id="stop">Stop</button>
+
+<div class="stat">Sent: <span id="count">0</span></div>
+<div class="stat">Elapsed: <span id="elapsed">00:00</span></div>
+<div class="stat">Stability: <span id="stability">—</span></div>
+<div class="stat">Unique URLs: <span id="unique">0</span></div>
+
+<div class="stat">Activity</div>
+<div class="meter"><div id="heat" class="heat"></div></div>
+
+<div id="log"></div>
+
+<script>
+let sendTimer=null, elapsedTimer=null;
+let count=0, lastCount=0, startTime=null;
+let samples=[], heat=0, urlSet=new Set();
+
+const logBox=document.getElementById('log');
+const heatBar=document.getElementById('heat');
+
+function log(msg){
+  const d=document.createElement('div');
+  d.textContent=msg;
+  logBox.appendChild(d);
+  logBox.scrollTop=logBox.scrollHeight;
+}
+
+function formatTime(ms){
+  const s=Math.floor(ms/1000);
+  const m=Math.floor(s/60);
+  return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+
+function send(url){
+  const img=new Image();
+  img.src=url;
+}
+
+// Stability + heat sampler (UI only)
+setInterval(()=>{
+  if(!startTime) return;
+
+  const delta=count-lastCount;
+  lastCount=count;
+
+  samples.push(delta);
+  if(samples.length>10) samples.shift();
+
+  const avg=samples.reduce((a,b)=>a+b,0)/samples.length||0;
+  const varr=samples.reduce((a,b)=>a+Math.abs(b-avg),0)/samples.length||0;
+
+  let label='SMOOTH', color='#00ffff';
+  if(varr>avg*0.5){ label='BURSTY'; color='#ffdd55'; }
+  if(varr>avg){ label='CHAOTIC'; color='#ff5555'; }
+
+  const stab=document.getElementById('stability');
+  stab.textContent=label;
+  stab.style.color=color;
+
+  heat=Math.min(100,heat*0.85+delta*3);
+  heatBar.style.width=heat+'%';
+},300);
+
+document.getElementById('start').onclick=()=>{
+  const base=document.getElementById('url').value.trim();
+  const rate=Math.min(10,Math.max(1,+rateEl.value));
+  const mode=document.getElementById('mode').value;
+  if(!base) return alert('Enter URL');
+
+  clearInterval(sendTimer);
+  clearInterval(elapsedTimer);
+
+  count=lastCount=heat=0;
+  samples=[]; urlSet.clear();
+  logBox.innerHTML='';
+  document.getElementById('count').textContent=0;
+  document.getElementById('unique').textContent=0;
+  document.getElementById('stability').textContent='—';
+
+  startTime=performance.now();
+
+  elapsedTimer=setInterval(()=>{
+    document.getElementById('elapsed').textContent=
+      formatTime(performance.now()-startTime);
+  },200);
+
+  if(mode==='smooth'){
+    sendTimer=setInterval(()=>{
+      const u=base+'?r='+Math.random();
+      send(u); urlSet.add(u);
+      count++;
+      document.getElementById('count').textContent=count;
+      document.getElementById('unique').textContent=urlSet.size;
+      log('→ '+u);
+    },1/rate);
+  } else {
+    sendTimer=setInterval(()=>{
+      for(let i=0;i<rate;i++){
+        const u=base+'?r='+Math.random();
+        send(u); urlSet.add(u); count++;
+      }
+      document.getElementById('count').textContent=count;
+      document.getElementById('unique').textContent=urlSet.size;
+    },100);
+  }
+};
+
+document.getElementById('stop').onclick=()=>{
+  clearInterval(sendTimer);
+  clearInterval(elapsedTimer);
+  sendTimer=elapsedTimer=null;
+  log('Stopped');
+};
+
+const rateEl=document.getElementById('rate');
+</script>
+
+</body>
+</html>
